@@ -1,0 +1,31 @@
+diff -up ./pom.xml.fix ./pom.xml
+--- ./pom.xml.fix	2014-03-05 17:26:37.417268725 -0500
++++ ./pom.xml	2014-03-05 17:26:54.337527088 -0500
+@@ -505,27 +505,6 @@
+ 					</execution>
+ 				</executions>
+ 			</plugin>
+-			<plugin>
+-				<groupId>org.jacoco</groupId>
+-				<artifactId>jacoco-maven-plugin</artifactId>
+-				<version>0.7.1.201405082137</version>
+-				<executions>
+-					<execution>
+-						<id>pre-test</id>
+-						<goals>
+-							<goal>prepare-agent</goal>
+-						</goals>
+-						<configuration>
+-						<!-- Where to put jacoco coverage report -->
+-							<destFile>${sonar.jacoco.reportPath}</destFile>
+-							<includes>
+-								<include>org.eclipse.cdt.*</include>
+-							</includes>
+-							<append>true</append>
+-						</configuration>
+-					</execution>
+-				</executions>
+-			</plugin>
+ 		</plugins>
+ 		<pluginManagement>
+ 			<plugins>
