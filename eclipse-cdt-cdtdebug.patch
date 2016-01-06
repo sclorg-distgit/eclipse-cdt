@@ -1,0 +1,74 @@
+--- ./debug/org.eclipse.cdt.debug.application/scripts/cdtdebug.sh.orig	2014-10-06 15:52:36.978351369 +0100
++++ ./debug/org.eclipse.cdt.debug.application/scripts/cdtdebug.sh	2014-10-06 16:32:49.816501768 +0100
+@@ -71,26 +71,31 @@
+ done
+ 
+ # Make sure local directory exists and has contents initialized
+-if [ ! -d "$HOME/cdtdebugger" ]; then
+-  /bin/sh "$SCRIPT_DIR/install.sh" || exit
++if [ $0 -nt "$HOME/rhcdtdebugger" ]; then
++rm -rf $HOME/rhcdtdebugger >/dev/null
++mkdir -p $HOME/rhcdtdebugger
++cp config.ini $HOME/rhcdtdebugger
++cp dev.properties $HOME/rhcdtdebugger
+ fi
+ 
+ # Calculate platform-specific jar file names
+-ECLIPSE_HOME=$(cd "$SCRIPT_DIR/../../.." && pwd)  # install.sh will modify this line.  DO NOT REMOVE THE FOLLOWING MARKER: @#@#
++ECLIPSE_HOME="@ECLIPSE_HOME@"
+ PLUGIN_DIR="$ECLIPSE_HOME/plugins"
++CDT_PLUGIN_DIR="@CDT_DROPINS@"
+ 
+ OSGI_JAR=`find "$PLUGIN_DIR" -maxdepth 1 -name 'org.eclipse.osgi_*.jar' -not -name '*source*' -printf "%f\n" | head -1`
+-SWT_JAR=`find "$PLUGIN_DIR" -maxdepth 1 -name 'org.eclipse.swt.*.jar' -not -name '*source*' -printf "%f\n" | head -1`
++SWT_JAR=`find "$PLUGIN_DIR" -maxdepth 1 -name 'org.eclipse.swt.*' -not -name '*source*' -printf "%f\n" | head -1`
+ SWT_PLUGIN=`echo $SWT_JAR | sed -e "s/_[0-9]*\..*.jar//"`
+ FS_JAR=`find "$PLUGIN_DIR" -maxdepth 1 -name 'org.eclipse.core.filesystem.*.jar' -not -name '*source*' -printf "%f\n" | grep -v java7 | head -1`
+ FS_PLUGIN=`echo $FS_JAR | sed -e "s/_[0-9]*\..*.jar//"`
+-LINUX_JAR=`find "$PLUGIN_DIR" -maxdepth 1 -name 'org.eclipse.cdt.core.linux.*.jar' -not -name '*source*' -printf "%f\n" | head -1`
++LINUX_JAR=`find "$CDT_PLUGIN_DIR" -maxdepth 1 -name 'org.eclipse.cdt.core.linux.*.jar' -not -name '*source*' -printf "%f\n" | head -1`
+ LINUX_PLUGIN=`echo $LINUX_JAR | sed -e "s/_[0-9]*\..*.jar//"`
+ 
+ # Run eclipse with the Stand-alone Debugger product specified
+ "$ECLIPSE_HOME/eclipse" -clean -product org.eclipse.cdt.debug.application.product \
+-                        -data "$HOME/workspace-cdtdebug" -configuration file\:"$HOME/cdtdebugger" \
+-                        -dev file\:"$HOME/cdtdebugger/dev.properties" $options \
++                        -application org.eclipse.cdt.debug.application.app \
++                        -data "$HOME/workspace-rhcdtdebug" -configuration file\:"$HOME/rhcdtdebugger" \
++                        -dev file\:"$HOME/rhcdtdebugger/dev.properties" $options \
+                         -vmargs -Dosgi.jar=$OSGI_JAR -Dswt.plugin=$SWT_PLUGIN -Dfs.plugin=$FS_PLUGIN \
+                         -Dlinux.plugin=$LINUX_PLUGIN -Declipse.home="$ECLIPSE_HOME"
+ 
+--- ./debug/org.eclipse.cdt.debug.application/scripts/install.sh.orig	2014-10-06 16:24:44.634312348 +0100
++++ ./debug/org.eclipse.cdt.debug.application/scripts/install.sh	2014-10-06 16:26:59.737416197 +0100
+@@ -15,29 +15,4 @@
+ 
+ SCRIPT_DIR=`dirname $0`
+ 
+-if [ ! -f "$SCRIPT_DIR/../../../eclipse" ]; then
+-  echo "$0: error: eclipse executable not found in expected location"
+-  echo " "
+-  echo "This can occur if you are running this script from your local .eclipse directory"
+-  echo "which would mean you are running a shared instance of the Eclipse platform for"
+-  echo "your distro and have installed the Stand-alone Debugger from an eclipse.org"
+-  echo "download repo.  Downloading the Stand-alone Debugger feature on top of a distro"
+-  echo "version of Eclipse Debugger is not supported.  If you are using a distro version"
+-  echo "of the Eclipse platform, you should not use this script.  Instead, install the"
+-  echo "corresponding Eclipse CDT package for your distro (e.g. eclipse-cdt package)"
+-  echo "which will install the Stand-alone Debugger for you."
+-  exit 1
+-fi
+-
+-if [ ! -d "$HOME/cdtdebugger" ]; then
+-  mkdir -p "$HOME/cdtdebugger"
+-fi
+-cp "$SCRIPT_DIR/config.ini" "$HOME/cdtdebugger"
+-cp "$SCRIPT_DIR/dev.properties" "$HOME/cdtdebugger"
+-cp "$SCRIPT_DIR/cdtdebug.sh" "$HOME/cdtdebugger"
+-chmod +x "$HOME/cdtdebugger/cdtdebug.sh"
+-
+-ECLIPSE_HOME=$(cd "$SCRIPT_DIR/../../.." && pwd)
+-# Replace the entire line with tag @#@# by the actual location of the eclipse installation
+-sed -i -e "s,^.*@#@#.*$,ECLIPSE_HOME=$ECLIPSE_HOME," "$HOME/cdtdebugger/cdtdebug.sh"
+-echo "Installation complete"
++echo "Installation already done"
