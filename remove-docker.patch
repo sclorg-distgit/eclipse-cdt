@@ -1,0 +1,15 @@
+--- releng/org.eclipse.cdt.repo/category.xml.sav	2015-06-02 07:25:40.000000000 +0300
++++ releng/org.eclipse.cdt.repo/category.xml	2015-06-04 08:44:10.092273085 +0300
+@@ -65,12 +65,6 @@
+    <feature url="features/org.eclipse.cdt.autotools.source_0.0.0.qualifier.jar" id="org.eclipse.cdt.autotools.source" version="0.0.0">
+       <category name="extra"/>
+    </feature>
+-   <feature url="features/org.eclipse.cdt.docker.launcher_0.0.0.qualifier.jar" id="org.eclipse.cdt.docker.launcher" version="0.0.0">
+-      <category name="extra"/>
+-   </feature>
+-   <feature url="features/org.eclipse.cdt.docker.launcher.source_0.0.0.qualifier.jar" id="org.eclipse.cdt.docker.launcher.source" version="0.0.0">
+-      <category name="extra"/>
+-   </feature>
+    <feature url="features/org.eclipse.cdt.testsrunner.feature_0.0.0.qualifier.jar" id="org.eclipse.cdt.testsrunner.feature" version="0.0.0">
+       <category name="extra"/>
+    </feature>

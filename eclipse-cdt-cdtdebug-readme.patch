@@ -1,0 +1,34 @@
+diff --git a/debug/org.eclipse.cdt.debug.application/scripts/README b/debug/org.eclipse.cdt.debug.application/scripts/README
+index 0bed384..b761e30 100644
+--- a/debug/org.eclipse.cdt.debug.application/scripts/README
++++ b/debug/org.eclipse.cdt.debug.application/scripts/README
+@@ -3,15 +3,11 @@ is needed of the CDT plug-ins to debug a C/C++ executable.  Build is not support
+ Editing is allowed, but you will need to rebuild outside the Stand-alone Debugger for
+ those changes to manifest in your debugging session.
+ 
+-To install the Stand-alone debugger locally in your $HOME directory, run the install.sh
+-script found in the scripts sub-directory of the plugins directory in your Eclipse installation:
++To run the Stand-alone debugger, use the /usr/bin/cdtdebug script.  The first time the
++script is run, it will create an rhcdtdebugger sub-directory in your $HOME directory.  This
++directory will contain a config.ini file and a dev.properties file.
+ 
+-  ./install.sh
+-
+-The install script will create a cdtdebugger directory in your $HOME directory.  This
+-directory will contain a config.ini file, a dev.properties file, and a cdtdebug.sh script.
+-The cdtdebug.sh script will start the debugger from the command-line.  The cdtdebug.sh script
+-does not have to be located in the cdtdebugger directory and can be moved if you prefer.
++The /usr/bin/cdtdebug script will start the debugger from the command-line.
+ 
+ The script takes a few options which are mentioned below:
+ 
+@@ -55,8 +51,5 @@ If no -a or -e option is specified, the last executable debugged via -e will be
+ debugging.  Otherwise, if this is the first time, a dialog will be presented to enter
+ an executable, build log, and program arguments.
+ 
+-  e.g. ~/cdtdebugger/cdtdebug.sh -b ~/build.log -e ~/myproject/bin/a.out arg1 arg2
+-
+-The cdtdebug.sh script that is found in the plug-in can also be run directly, but cannot
+-be moved.  The one installed in the cdtdebugger directory on the other hand, can be moved.
++    e.g. cdtdebug -b ~/build.log ~/myproject/bin/a.out arg1 arg2
+ 

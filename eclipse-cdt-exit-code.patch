@@ -1,0 +1,26 @@
+From ddf192339270ae4bdd8990d4df48689140ac08a1 Mon Sep 17 00:00:00 2001
+From: Marc Khouzam <marc.khouzam@ericsson.com>
+Date: Thu, 17 Sep 2015 10:39:44 -0400
+Subject: [PATCH] Bug 477728 - Exit code not displayed in console for new Run config
+
+Change-Id: Id1ecdffb5d3a99908f7ac4ee096f2b7f7e3d6440
+---
+
+diff --git a/launch/org.eclipse.cdt.launch/src/org/eclipse/cdt/launch/internal/LocalCDILaunchDelegate.java b/launch/org.eclipse.cdt.launch/src/org/eclipse/cdt/launch/internal/LocalCDILaunchDelegate.java
+index 10605ef..9eff261 100644
+--- a/launch/org.eclipse.cdt.launch/src/org/eclipse/cdt/launch/internal/LocalCDILaunchDelegate.java
++++ b/launch/org.eclipse.cdt.launch/src/org/eclipse/cdt/launch/internal/LocalCDILaunchDelegate.java
+@@ -407,6 +407,13 @@
+ 			if (ICDTLaunchConfigurationConstants.DEBUGGER_MODE_CORE.equals(config.getAttribute(ICDTLaunchConfigurationConstants.ATTR_DEBUGGER_START_MODE, ICDTLaunchConfigurationConstants.DEBUGGER_MODE_RUN)))
+ 				return true; 
+ 		}
++		if (mode.equals(ILaunchManager.RUN_MODE)) {
++			// We plan on splitting the Run delegate from the Debug one.
++			// For now, to keep backwards-compatibility, we need to keep the same delegate (to keep its id)
++			// However, we can just call the new delegate class
++			new LocalRunLaunchDelegate().preLaunchCheck(config, mode, monitor);
++		}
++
+ 		return super.preLaunchCheck(config, mode, monitor);
+ 	}
+ 
