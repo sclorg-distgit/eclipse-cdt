@@ -1,0 +1,11 @@
+diff -up ./build/org.eclipse.cdt.autotools.tests/build.properties.fix ./build/org.eclipse.cdt.autotools.tests/build.properties
+--- ./build/org.eclipse.cdt.autotools.tests/build.properties.fix	2013-10-07 17:04:35.000000000 -0400
++++ ./build/org.eclipse.cdt.autotools.tests/build.properties	2013-10-07 17:04:53.000000000 -0400
+@@ -1,6 +1,7 @@
+ source.. = src/
+ output.. = bin/
+ bin.includes = META-INF/,\
++               .,\
+                plugin.properties,\
+                zip/,\
+                about.html

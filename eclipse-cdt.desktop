@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Eclipse C/C++ Debugger
+Comment=Eclipse Stand-alone C/C++ Debugger
+Icon=eclipse
+Exec=cdtdebug
+Terminal=false
+Categories=Development;Debugger;Java;
