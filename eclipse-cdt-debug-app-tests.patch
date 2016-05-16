@@ -1,0 +1,9 @@
+--- debug/org.eclipse.cdt.debug.application.tests/build.properties.orig	2016-03-31 13:24:12.560823192 +0100
++++ debug/org.eclipse.cdt.debug.application.tests/build.properties	2016-03-31 13:24:51.766330749 +0100
+@@ -12,5 +12,6 @@
+ output.. = bin/
+ bin.includes = META-INF/,\
+                .,\
++               projects/,\
+                plugin.properties,\
+                about.html

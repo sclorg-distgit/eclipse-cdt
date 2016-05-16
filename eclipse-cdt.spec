@@ -2,41 +2,47 @@
 %{!?scl:%global pkg_name %{name}}
 %{?java_common_find_provides_and_requires}
 
+%global baserelease 3
 
 %global debug_package %{nil}
 %global _enable_debug_packages 0
+%global __jar_repack %{nil}
+
+%if 0%{?fedora} >= 24
+%global droplets droplets
+%else
+%global droplets dropins
+%endif
 
 # Change following to 0 to default to no container/remote support when building for 
 # first time in a release...this is needed to build eclipse-linuxtools-docker and
-# eclipse.remote which are circular dependencies of eclipse-cdt.  Disable both
-# first to build eclipse-remote.  Later, enable linuxtools when linuxtools is built.
-%global _enable_remote 1
-%global _enable_linuxtools 1
+# eclipse.remote which are circular dependencies of eclipse-cdt
+%global _enable_container_and_remote_support 1
 
 Epoch: 1
 
-%define major                   8
-%define minor                   7
-%define majmin                  %{major}.%{minor}
-%define micro                   0
-%define eclipse_base            %{_libdir}/eclipse
-%define cdt_snapshot		org.eclipse.cdt-CDT_8_7_0
+%global major                   8
+%global minor                   8
+%global majmin                  %{major}.%{minor}
+%global micro                   1
+%global eclipse_base            %{_libdir}/eclipse
+%global cdt_snapshot            org.eclipse.cdt-CDT_8_8_1
 
 # All arches line up except i386 -> x86
 %ifarch %{ix86}
-%define eclipse_arch    x86
+%global eclipse_arch    x86
 %else
 %ifarch %{arm}
-%define eclipse_arch    arm
+%global eclipse_arch    arm
 %else
-%define eclipse_arch    %{_arch}
+%global eclipse_arch    %{_arch}
 %endif
 %endif
 
 Summary:        Eclipse C/C++ Development Tools (CDT) plugin
 Name:           %{?scl_prefix}eclipse-cdt
 Version:        %{majmin}.%{micro}
-Release:        8.bs2%{?dist}
+Release:        9.%{baserelease}%{?dist}
 License:        EPL and CPL
 URL:            http://www.eclipse.org/cdt
 
@@ -50,67 +56,50 @@ Source4: cdtdebug.man
 # Script to run the tests in Xvnc
 Source5: %{pkg_name}-runtests.sh
 
-Patch0: %{pkg_name}-tycho-build.patch
-
 # Following adds current directory to autotools tests build.properties
-Patch1: %{pkg_name}-autotools-test.patch
+Patch0: %{pkg_name}-autotools-test.patch
 
 # Following fixes cdtdebug.sh script to get proper platform filesystem plugin
-Patch2: %{pkg_name}-cdtdebug.patch
+Patch1: %{pkg_name}-cdtdebug.patch
 
 # Following fixes Standalone Debugger config.ini file to use bundle symbolic names
-Patch3: %{pkg_name}-config-ini.patch
+Patch2: %{pkg_name}-config-ini.patch
 
 # Following fixes Standalone Debugger README file to refer to /usr/bin/cdtdebug
-Patch4: %{pkg_name}-cdtdebug-readme.patch
-
-# Following fixes jetty reqs in CDT target
-Patch5: %{pkg_name}-target.patch
+Patch3: %{pkg_name}-cdtdebug-readme.patch
 
 # Following removes docker launcher plugins from repo
-Patch6: remove-docker.patch
+Patch4: remove-docker.patch
 
 # Following removes autotools and remote plugins from repo
-Patch7: remove-remote.patch
+Patch5: remove-remote.patch
 
-# Following removes arduino plug-ins/feature
-Patch8: remove-arduino.patch
+# Adds missing test resources
+Patch6: eclipse-cdt-debug-app-tests.patch
 
-# Following adds missing java resources to tests
-Patch9: %{pkg_name}-test-resources.patch
-
-# Following fixes Bug 1261915 - missing exit code in console
-Patch10: %{pkg_name}-exit-code.patch
-
-# Following also needed to fix Bug 1261915 - missing exit code in console
-Patch11: %{pkg_name}-gdbversion.patch
+# Fix Connection setting in C/C++ Docker Launch configuration
+Patch7: eclipse-cdt-docker-launch-config.patch
 
 BuildRequires: %{?scl_prefix}tycho
 BuildRequires: %{?scl_prefix}tycho-extras
-BuildRequires: %{?scl_prefix}eclipse-pde >= 1:4.3.0
 BuildRequires: %{?scl_prefix}eclipse-license
-BuildRequires: %{?scl_prefix_java_common}maven-local
 BuildRequires: desktop-file-utils
 BuildRequires: %{?scl_prefix}lpg-java-compat
-BuildRequires: %{?scl_prefix}eclipse-platform >= 1:4.3.0
-BuildRequires: %{?scl_prefix}eclipse-tests >= 1:4.3.0
+BuildRequires: %{?scl_prefix_java_common}google-gson
+BuildRequires: %{?scl_prefix}eclipse-platform
+BuildRequires: %{?scl_prefix}eclipse-contributor-tools
 BuildRequires: %{?scl_prefix}eclipse-swtbot
 BuildRequires: %{?scl_prefix_maven}exec-maven-plugin
-%if %{_enable_linuxtools}
+%if %{_enable_container_and_remote_support}
 BuildRequires: %{?scl_prefix}eclipse-linuxtools-docker
-%endif
-%if %{_enable_remote}
-BuildRequires: %{?scl_prefix}eclipse-remote
+BuildRequires: %{?scl_prefix}eclipse-remote >= 2.0.0-1
 BuildRequires: %{?scl_prefix}eclipse-rse
 %endif
 
 Requires:      %{?scl_prefix}gdb make %{?scl_prefix}gcc-c++
-%if %{_enable_remote}
+%if %{_enable_container_and_remote_support}
 Requires:      autoconf automake libtool
-Requires:      %{?scl_prefix}eclipse-remote
-%endif
-%if %{_enable_linuxtools}
-Requires:      %{?scl_prefix}eclipse-linuxtools-libhover
+Requires:      %{?scl_prefix}eclipse-remote >= 2.0.0-1
 %endif
 
 %description
@@ -124,12 +113,12 @@ Requires:       %{?scl_prefix}lpg-java-compat
 %description parsers
 Optional language-variant parsers for the CDT.
 
-%if %{_enable_linuxtools} == 1
+%if %{_enable_container_and_remote_support} == 1
 
 %package docker
-Summary:	C/C++ Docker Launcher
-Requires:      %{name} = %{epoch}:%{version}-%{release}
-Requires:	%{?scl_prefix}eclipse-linuxtools-docker
+Summary:        C/C++ Docker Launcher
+Requires:       %{name} = %{epoch}:%{version}-%{release}
+Requires:       %{?scl_prefix}eclipse-linuxtools-docker
 
 %description docker
 Special launcher for CDT to allow launching and debugging C/C++ applications
@@ -137,8 +126,15 @@ in Docker Containers.
 
 %endif
 
+%package qt
+Summary:        QT C++ Tools
+Requires:       %{name} = %{epoch}:%{version}-%{release}
+
+%description qt
+Extensions to support Qt projects and objects in the indexer.
+
 %package tests
-Summary:	Eclipse C/C++ Development Tools (CDT) Tests
+Summary:        Eclipse C/C++ Development Tools (CDT) Tests
 Requires:       %{name} = %{epoch}:%{version}-%{release}
 Requires:       %{name}-parsers = %{epoch}:%{version}-%{release}
 Requires:       %{?scl_prefix}eclipse-tests
@@ -154,9 +150,8 @@ Requires:       %{name} = %{epoch}:%{version}-%{release}
 Source for Eclipse CDT for use within Eclipse.
 
 %prep
-
 %{?scl:scl enable %{scl_maven} %{scl} - << "EOF"}
-
+set -e -x
 %setup -q -n %{cdt_snapshot}
 
 # get desktop info
@@ -171,20 +166,22 @@ cp %{SOURCE4} man
 %patch1 -p1
 %patch2 -p1
 %patch3 -p1
-%patch4 -p1
-%patch5 -p1
-%patch8 -p0
-%patch9 -p0
-%patch10 -p1
-%patch11 -p1
-%if %{_enable_linuxtools} == 0
+%patch7 -p1
+%if %{_enable_container_and_remote_support} == 0
+%patch4 -p0
+%patch5 -p0
+%else
+# Docker not available on F22 or earlier
+%if 0%{?fedora} == 22
+%patch4 -p0
+%endif
+%endif
 %patch6 -p0
-%endif
-%if %{_enable_remote} == 0
-%patch7 -p0
-%endif
 
-sed -i -e 's/<arch>x86<\/arch>/<arch>%{eclipse_arch}<\/arch>/g' pom.xml
+TYCHO_ENV="<environment><os>linux</os><ws>gtk</ws><arch>%{eclipse_arch}</arch></environment>"
+%pom_xpath_set "pom:configuration/pom:environments" "$TYCHO_ENV"
+%pom_xpath_set "pom:configuration/pom:environments" "$TYCHO_ENV" core/org.eclipse.cdt.core.linux
+
 # Add secondary arch support if we are building there
 %ifarch %{arm} s390 s390x aarch64
 pushd core
@@ -194,17 +191,10 @@ sed -i -e 's/\\(x86\\)/(%{eclipse_arch})/g' plugin.properties
 popd
 cp -r org.eclipse.cdt.core.linux.x86 org.eclipse.cdt.core.linux.%{eclipse_arch}
 rm -fr org.eclipse.cdt.core.linux.x86
-pushd org.eclipse.cdt.core.linux
-sed -i -e 's/<arch>x86<\/arch>/<arch>%{eclipse_arch}<\/arch>/g' pom.xml
-popd
 pushd org.eclipse.cdt.core.linux.%{eclipse_arch}
 sed -i -e 's/x86/%{eclipse_arch}/g' pom.xml
-pushd META-INF
-sed -i -e 's/x86/%{eclipse_arch}/g' MANIFEST.MF
-popd
-pushd os/linux
-mv x86 %{eclipse_arch}
-popd
+sed -i -e 's/x86/%{eclipse_arch}/g' META-INF/MANIFEST.MF
+mv os/linux/x86 os/linux/%{eclipse_arch}
 popd
 popd
 pushd releng/org.eclipse.cdt.native-feature
@@ -219,17 +209,22 @@ pushd core/org.eclipse.cdt.core.linux.%{eclipse_arch}
 sed -i -e"/Bundle-Localization: plugin/ aEclipse-BundleShape: dir" META-INF/MANIFEST.MF
 popd
 
+# Don't use the target configuration
+%pom_disable_module releng/org.eclipse.cdt.target
+%pom_xpath_remove "pom:configuration/pom:target"
+
+# Don't need to build the repo
+%pom_disable_module releng/org.eclipse.cdt.repo
+
 # Disable the jgit provider and force default packaging
 %pom_remove_plugin org.eclipse.tycho:tycho-packaging-plugin
 %pom_remove_plugin org.jacoco:jacoco-maven-plugin
 
 # Disable docker, autotools, and remote features if we are building a boot-strap build
-%if %{_enable_linuxtools} == 0
+%if %{_enable_container_and_remote_support} == 0
 %pom_disable_module launch/org.eclipse.cdt.docker.launcher
 %pom_disable_module launch/org.eclipse.cdt.docker.launcher-feature
 %pom_disable_module launch/org.eclipse.cdt.docker.launcher.source-feature
-%endif
-%if %{_enable_remote} == 0
 %pom_disable_module build/org.eclipse.cdt.autotools.core
 %pom_disable_module build/org.eclipse.cdt.autotools.ui
 %pom_disable_module build/org.eclipse.cdt.autotools.docs
@@ -242,14 +237,21 @@ popd
 %pom_disable_module cross/org.eclipse.cdt.launch.remote-feature
 %pom_disable_module remote/org.eclipse.cdt.remote.core
 %pom_disable_module remote/org.eclipse.cdt.remote-feature
+%else
+# Docker not available on F22 or earlier
+%if 0%{?fedora} == 22
+%pom_disable_module launch/org.eclipse.cdt.docker.launcher
+%pom_disable_module launch/org.eclipse.cdt.docker.launcher-feature
+%pom_disable_module launch/org.eclipse.cdt.docker.launcher.source-feature
+%endif
 %endif
 
-# Remove arduino
+# Remove arduino, llvm and p2 installer
 %pom_disable_module toolchains/arduino/org.eclipse.cdt.arduino.core
 %pom_disable_module toolchains/arduino/org.eclipse.cdt.arduino.ui
 %pom_disable_module toolchains/arduino/org.eclipse.cdt.arduino-feature
-
-# Remove p2 installer
+%pom_disable_module llvm/org.eclipse.cdt.managedbuilder.llvm.ui
+%pom_disable_module llvm/org.eclipse.cdt.managedbuilder.llvm-feature
 %pom_disable_module p2/org.eclipse.cdt.p2
 %pom_disable_module p2/org.eclipse.cdt.p2-feature
 
@@ -264,14 +266,32 @@ for b in aix macosx solaris win32 ; do
   %pom_xpath_remove "plugin[@id='org.eclipse.cdt.core.$b.source']" releng/org.eclipse.cdt.native.source-feature/feature.xml
 done
 
+# Add explicit dep on hamcrest for tests
 sed -i -e "s|org.junit|org.hamcrest.core, org.junit|g" dsf-gdb/org.eclipse.cdt.tests.dsf.gdb/META-INF/MANIFEST.MF
 
+# Drop unnecessary dep on log4j
+sed -i -e '/log4j/d' build/org.eclipse.cdt.autotools.ui.tests/META-INF/MANIFEST.MF
+
+%mvn_package "::pom::" __noinstall
+%mvn_package ::jar:sources: sdk
+%mvn_package ":*.source{,.feature}" sdk
+%mvn_package :*.sdk sdk
+%mvn_package :*.doc.isv sdk
+%mvn_package ":*.testsrunner.test" tests
+%mvn_package ":*.testsrunner*"
+%mvn_package ":*.test{,s}*" tests
+%mvn_package :*parser* parsers
+%mvn_package ":org.eclipse.cdt.*{xlc,xlupc,bupc}*" parsers
+%mvn_package :org.eclipse.cdt.docker* docker
+%mvn_package :org.eclipse.cdt.qt* qt
+%mvn_package :org.eclipse.cdt*
 %{?scl:EOF}
+
 
 %build
 %{?scl:scl enable %{scl_maven} %{scl} - << "EOF"}
-
-export JAVA_HOME=%{java_home}
+set -e -x
+export JAVA_HOME=/usr/lib/jvm/java-1.8.0
 
 # Exclude EquinoxResolver to avoid NPE occuring on arm
 %ifarch %{arm}
@@ -279,246 +299,238 @@ export MAVEN_OPTS="-XX:CompileCommand=exclude,org/eclipse/tycho/core/osgitools/E
 %endif
 
 pushd core/org.eclipse.cdt.core.linux/library
-make JAVA_HOME="/usr/lib/jvm/java" ARCH=%{eclipse_arch} CC='gcc -D_GNU_SOURCE'
+make JAVA_HOME="$JAVA_HOME" ARCH=%{eclipse_arch} CC='gcc -D_GNU_SOURCE'
 popd
 
-xmvn -o -Dtycho.local.keepTarget -Dskip-ppc64le -Dmaven.test.skip=true -Dmaven.repo.local=`pwd`/.m2 install
-
+%mvn_build -j -f -- -Dtycho.local.keepTarget -Dskip-ppc64le
 %{?scl:EOF}
 
-%install
 
-installDir=${RPM_BUILD_ROOT}/%{eclipse_base}/dropins/cdt
-testInstallDir=${RPM_BUILD_ROOT}/%{_javadir}/eclipse-cdt-tests/plugins
-parsersInstallDir=${installDir}-parsers
-%if %{_enable_linuxtools} == 1
-dockerInstallDir=${installDir}-docker
-%endif
-sdkInstallDir=${installDir}-sdk
+%install
+%{?scl:scl enable %{scl_maven} %{scl} - << "EOF"}
+set -e -x
+%mvn_install
+
 binInstallDir=${RPM_BUILD_ROOT}/%{_bindir}
 manInstallDir=${RPM_BUILD_ROOT}/%{_mandir}/man1
-install -d -m755 $installDir
-install -d -m755 $parsersInstallDir
-install -d -m755 $sdkInstallDir
-install -d -m755 $testInstallDir
 install -d -m755 $binInstallDir
 install -d -m755 $manInstallDir
-%if %{_enable_linuxtools} == 1
-install -d -m755 $dockerInstallDir
-%endif
 
-# Unzip contents of the cdt repo, removing all but plugins and features
-unzip -q -o releng/org.eclipse.cdt.repo/target/org.eclipse.cdt.repo.zip \
--d $installDir/eclipse
+cat << EOFSCRIPT > eclipse-runCDTTestBundles
+#! /bin/bash
+eclipse-runTestBundles %{_javadir}/cdt-tests
+EOFSCRIPT
 
-#tests
-# We need grep to return non-zero status to skip all non eclipse-test-plugins
-set +e
-for pom in `find . -name pom.xml`; do
- grep -q '<packaging>eclipse-test-plugin</packaging>' ${pom}
- if [ $? -eq 0 ]; then
-   testjar=`ls ${pom/pom.xml/}'target/'*.jar | grep -v sources`
-   cp ${testjar} ${testInstallDir}
- fi
-done
-set -e
+install -D -m 755 eclipse-runCDTTestBundles %{buildroot}%{_bindir}/eclipse-runCDTTestBundles
 
-# Unzip CDT Standalone Debug plugin which contains installation scripts for the end-user to use
-pushd ${installDir}/eclipse/plugins
+pushd %{buildroot}%{eclipse_base}/%{droplets}/cdt/eclipse/plugins
 DEBUGAPPLICATIONVERSION=$(ls . | grep org.eclipse.cdt.debug.application_ | sed 's/org.eclipse.cdt.debug.application_//' |sed 's/.jar//')
-unzip org.eclipse.cdt.debug.application_$DEBUGAPPLICATIONVERSION.jar -d ./org.eclipse.cdt.debug.application_$DEBUGAPPLICATIONVERSION
-# Copy the jar file inside the folder to work around issue where standalone application cannot be found without a jar file
-mv org.eclipse.cdt.debug.application_$DEBUGAPPLICATIONVERSION.jar org.eclipse.cdt.debug.application_$DEBUGAPPLICATIONVERSION/org.eclipse.cdt.debug.application.jar
-# Fix the cdtdebug.sh script to hard-code ECLIPSE_HOME and cdt dropins directory
-sed -i -e "s,@ECLIPSE_HOME@,%{eclipse_base}," org.eclipse.cdt.debug.application_$DEBUGAPPLICATIONVERSION/scripts/cdtdebug.sh
-sed -i -e "s,@CDT_DROPINS@,%{eclipse_base}/dropins/cdt/eclipse/plugins," org.eclipse.cdt.debug.application_$DEBUGAPPLICATIONVERSION/scripts/cdtdebug.sh
-# Fix the dropin bundles to have full paths to their respective jar files as Eclipse start-up won't find them otherwise
-PLUGIN=$(ls . | grep org.eclipse.cdt.core.linux_)
-sed -i -e "s,org.eclipse.cdt.core.linux\,,file\\\\:%{eclipse_base}/dropins/cdt/eclipse/plugins/$PLUGIN\,," org.eclipse.cdt.debug.application_$DEBUGAPPLICATIONVERSION/scripts/config.ini
-PLUGIN=$(ls . | grep org.eclipse.cdt.core_)
-sed -i -e "s,org.eclipse.cdt.core\,,file\\\\:%{eclipse_base}/dropins/cdt/eclipse/plugins/$PLUGIN\,," org.eclipse.cdt.debug.application_$DEBUGAPPLICATIONVERSION/scripts/config.ini
-PLUGIN=$(ls . | grep org.eclipse.cdt.debug.ui.memory.floatingpoint_)
-sed -i -e "s,org.eclipse.cdt.debug.ui.memory.floatingpoint\,,file\\\\:%{eclipse_base}/dropins/cdt/eclipse/plugins/$PLUGIN\,," org.eclipse.cdt.debug.application_$DEBUGAPPLICATIONVERSION/scripts/config.ini
-PLUGIN=$(ls . | grep org.eclipse.cdt.make.core_)
-sed -i -e "s,org.eclipse.cdt.make.core\,,file\\\\:%{eclipse_base}/dropins/cdt/eclipse/plugins/$PLUGIN\,," org.eclipse.cdt.debug.application_$DEBUGAPPLICATIONVERSION/scripts/config.ini
-PLUGIN=$(ls . | grep org.eclipse.cdt.dsf.ui_)
-sed -i -e "s,org.eclipse.cdt.dsf.ui\,,file\\\\:%{eclipse_base}/dropins/cdt/eclipse/plugins/$PLUGIN\,," org.eclipse.cdt.debug.application_$DEBUGAPPLICATIONVERSION/scripts/config.ini
-PLUGIN=$(ls . | grep org.eclipse.cdt.debug.ui.memory.traditional_)
-sed -i -e "s,org.eclipse.cdt.debug.ui.memory.traditional\,,file\\\\:%{eclipse_base}/dropins/cdt/eclipse/plugins/$PLUGIN\,," org.eclipse.cdt.debug.application_$DEBUGAPPLICATIONVERSION/scripts/config.ini
-PLUGIN=$(ls . | grep org.eclipse.cdt.ui_)
-sed -i -e "s,org.eclipse.cdt.ui\,,file\\\\:%{eclipse_base}/dropins/cdt/eclipse/plugins/$PLUGIN\,," org.eclipse.cdt.debug.application_$DEBUGAPPLICATIONVERSION/scripts/config.ini
-PLUGIN=$(ls . | grep org.eclipse.cdt.core_)
-sed -i -e "s,org.eclipse.cdt.core\,,file\\\\:%{eclipse_base}/dropins/cdt/eclipse/plugins/$PLUGIN\,," org.eclipse.cdt.debug.application_$DEBUGAPPLICATIONVERSION/scripts/config.ini
-PLUGIN=$(ls . | grep org.eclipse.cdt.debug.application_)
-sed -i -e "s,org.eclipse.cdt.debug.application\,,file\\\\:%{eclipse_base}/dropins/cdt/eclipse/plugins/$PLUGIN/org.eclipse.cdt.debug.application.jar\,," org.eclipse.cdt.debug.application_$DEBUGAPPLICATIONVERSION/scripts/config.ini
-PLUGIN=$(ls . | grep org.eclipse.cdt.debug.application.doc_)
-sed -i -e "s,org.eclipse.cdt.debug.application.doc\,,file\\\\:%{eclipse_base}/dropins/cdt/eclipse/plugins/$PLUGIN\,," org.eclipse.cdt.debug.application_$DEBUGAPPLICATIONVERSION/scripts/config.ini
-PLUGIN=$(ls . | grep org.eclipse.cdt.dsf.gdb.ui_)
-sed -i -e "s,org.eclipse.cdt.dsf.gdb.ui\,,file\\\\:%{eclipse_base}/dropins/cdt/eclipse/plugins/$PLUGIN\,," org.eclipse.cdt.debug.application_$DEBUGAPPLICATIONVERSION/scripts/config.ini
-PLUGIN=$(ls . | grep org.eclipse.cdt.debug.mi.ui_)
-sed -i -e "s,org.eclipse.cdt.debug.mi.ui\,,file\\\\:%{eclipse_base}/dropins/cdt/eclipse/plugins/$PLUGIN\,," org.eclipse.cdt.debug.application_$DEBUGAPPLICATIONVERSION/scripts/config.ini
-PLUGIN=$(ls . | grep org.eclipse.cdt.launch_)
-sed -i -e "s,org.eclipse.cdt.launch\,,file\\\\:%{eclipse_base}/dropins/cdt/eclipse/plugins/$PLUGIN\,," org.eclipse.cdt.debug.application_$DEBUGAPPLICATIONVERSION/scripts/config.ini
-PLUGIN=$(ls . | grep org.eclipse.cdt.managedbuilder.core_)
-sed -i -e "s,org.eclipse.cdt.managedbuilder.core\,,file\\\\:%{eclipse_base}/dropins/cdt/eclipse/plugins/$PLUGIN\,," org.eclipse.cdt.debug.application_$DEBUGAPPLICATIONVERSION/scripts/config.ini
-PLUGIN=$(ls . | grep org.eclipse.cdt.managedbuilder.gnu.ui_)
-sed -i -e "s,org.eclipse.cdt.managedbuilder.gnu.ui\,,file\\\\:%{eclipse_base}/dropins/cdt/eclipse/plugins/$PLUGIN\,," org.eclipse.cdt.debug.application_$DEBUGAPPLICATIONVERSION/scripts/config.ini
-PLUGIN=$(ls . | grep org.eclipse.cdt.gdb_)
-sed -i -e "s,org.eclipse.cdt.gdb\,,file\\\\:%{eclipse_base}/dropins/cdt/eclipse/plugins/$PLUGIN\,," org.eclipse.cdt.debug.application_$DEBUGAPPLICATIONVERSION/scripts/config.ini
-PLUGIN=$(ls . | grep org.eclipse.cdt.dsf.gdb_)
-sed -i -e "s,org.eclipse.cdt.dsf.gdb\,,file\\\\:%{eclipse_base}/dropins/cdt/eclipse/plugins/$PLUGIN\,," org.eclipse.cdt.debug.application_$DEBUGAPPLICATIONVERSION/scripts/config.ini
-PLUGIN=$(ls . | grep org.eclipse.cdt.dsf_)
-sed -i -e "s,org.eclipse.cdt.dsf\,,file\\\\:%{eclipse_base}/dropins/cdt/eclipse/plugins/$PLUGIN\,," org.eclipse.cdt.debug.application_$DEBUGAPPLICATIONVERSION/scripts/config.ini
-PLUGIN=$(ls . | grep org.eclipse.cdt.debug.mi.core_)
-sed -i -e "s,org.eclipse.cdt.debug.mi.core\,,file\\\\:%{eclipse_base}/dropins/cdt/eclipse/plugins/$PLUGIN\,," org.eclipse.cdt.debug.application_$DEBUGAPPLICATIONVERSION/scripts/config.ini
-PLUGIN=$(ls . | grep org.eclipse.cdt.gdb.ui_)
-sed -i -e "s,org.eclipse.cdt.gdb.ui\,,file\\\\:%{eclipse_base}/dropins/cdt/eclipse/plugins/$PLUGIN\,," org.eclipse.cdt.debug.application_$DEBUGAPPLICATIONVERSION/scripts/config.ini
-PLUGIN=$(ls . | grep org.eclipse.cdt.debug.ui.memory.transport_)
-sed -i -e "s,org.eclipse.cdt.debug.ui.memory.transport\,,file\\\\:%{eclipse_base}/dropins/cdt/eclipse/plugins/$PLUGIN\,," org.eclipse.cdt.debug.application_$DEBUGAPPLICATIONVERSION/scripts/config.ini
-PLUGIN=$(ls . | grep org.eclipse.cdt.debug.ui.memory.search_)
-sed -i -e "s,org.eclipse.cdt.debug.ui.memory.search\,,file\\\\:%{eclipse_base}/dropins/cdt/eclipse/plugins/$PLUGIN\,," org.eclipse.cdt.debug.application_$DEBUGAPPLICATIONVERSION/scripts/config.ini
-PLUGIN=$(ls . | grep org.eclipse.cdt.debug.ui.memory.memorybrowser_)
-sed -i -e "s,org.eclipse.cdt.debug.ui.memory.memorybrowser\,,file\\\\:%{eclipse_base}/dropins/cdt/eclipse/plugins/$PLUGIN\,," org.eclipse.cdt.debug.application_$DEBUGAPPLICATIONVERSION/scripts/config.ini
-PLUGIN=$(ls . | grep org.eclipse.cdt.debug.ui_)
-sed -i -e "s,org.eclipse.cdt.debug.ui\,,file\\\\:%{eclipse_base}/dropins/cdt/eclipse/plugins/$PLUGIN\,," org.eclipse.cdt.debug.application_$DEBUGAPPLICATIONVERSION/scripts/config.ini
-PLUGIN=$(ls . | grep org.eclipse.cdt.debug.core_)
-sed -i -e "s,org.eclipse.cdt.debug.core\,,file\\\\:%{eclipse_base}/dropins/cdt/eclipse/plugins/$PLUGIN\,," org.eclipse.cdt.debug.application_$DEBUGAPPLICATIONVERSION/scripts/config.ini
-PLUGIN=$(ls . | grep org.eclipse.cdt.core.native_)
-sed -i -e "s,org.eclipse.cdt.core.native\,,file\\\\:%{eclipse_base}/dropins/cdt/eclipse/plugins/$PLUGIN\,," org.eclipse.cdt.debug.application_$DEBUGAPPLICATIONVERSION/scripts/config.ini
-PLUGIN=$(ls . | grep 'org.eclipse.cdt.core.linux\..*.jar' | grep -v source)
-sed -i -e "s,\$linux.plugin\$\,,file\\\\:%{eclipse_base}/dropins/cdt/eclipse/plugins/$PLUGIN\,," org.eclipse.cdt.debug.application_$DEBUGAPPLICATIONVERSION/scripts/config.ini
-sed -i -e "s,cp config.ini,cp %{eclipse_base}/dropins/cdt/eclipse/plugins/org.eclipse.cdt.debug.application_$DEBUGAPPLICATIONVERSION/scripts/config.ini," org.eclipse.cdt.debug.application_$DEBUGAPPLICATIONVERSION/scripts/cdtdebug.sh
-sed -i -e "s,cp dev.properties,cp %{eclipse_base}/dropins/cdt/eclipse/plugins/org.eclipse.cdt.debug.application_$DEBUGAPPLICATIONVERSION/scripts/dev.properties," org.eclipse.cdt.debug.application_$DEBUGAPPLICATIONVERSION/scripts/cdtdebug.sh
-cp org.eclipse.cdt.debug.application_$DEBUGAPPLICATIONVERSION/scripts/cdtdebug.sh $binInstallDir/cdtdebug
+pushd org.eclipse.cdt.debug.application_$DEBUGAPPLICATIONVERSION
+# Create the jar file inside the folder to work around issue where standalone application cannot be found without a jar file
+jar -cfmv org.eclipse.cdt.debug.application_$DEBUGAPPLICATIONVERSION.jar META-INF/MANIFEST.MF *
 popd
+
+# Fix the cdtdebug.sh script to hard-code ECLIPSE_HOME and cdt droplets directory
+sed -i -e "s,@ECLIPSE_HOME@,%{eclipse_base}," org.eclipse.cdt.debug.application_$DEBUGAPPLICATIONVERSION/scripts/cdtdebug.sh
+sed -i -e "s,@CDT_DROPINS@,%{eclipse_base}/%{droplets}/cdt/eclipse/plugins," org.eclipse.cdt.debug.application_$DEBUGAPPLICATIONVERSION/scripts/cdtdebug.sh
+# Fix the dropin bundles to have full paths to their respective jar files as Eclipse start-up won't find them otherwise
+
+for PLUGIN in \
+$(ls . | grep org.eclipse.cdt.core.linux_) \
+$(ls . | grep org.eclipse.cdt.core_) \
+$(ls . | grep org.eclipse.cdt.debug.ui.memory.floatingpoint_) \
+$(ls . | grep org.eclipse.cdt.make.core_) \
+$(ls . | grep org.eclipse.cdt.dsf.ui_) \
+$(ls . | grep org.eclipse.cdt.debug.ui.memory.traditional_) \
+$(ls . | grep org.eclipse.cdt.ui_) \
+$(ls . | grep org.eclipse.cdt.core_) \
+$(ls . | grep org.eclipse.cdt.debug.application.doc_) \
+$(ls . | grep org.eclipse.cdt.dsf.gdb.ui_) \
+$(ls . | grep org.eclipse.cdt.debug.mi.ui_) \
+$(ls . | grep org.eclipse.cdt.launch_) \
+$(ls . | grep org.eclipse.cdt.managedbuilder.core_) \
+$(ls . | grep org.eclipse.cdt.managedbuilder.gnu.ui_) \
+$(ls . | grep org.eclipse.cdt.gdb_) \
+$(ls . | grep org.eclipse.cdt.dsf.gdb_) \
+$(ls . | grep org.eclipse.cdt.dsf_) \
+$(ls . | grep org.eclipse.cdt.debug.mi.core_) \
+$(ls . | grep org.eclipse.cdt.gdb.ui_) \
+$(ls . | grep org.eclipse.cdt.debug.ui.memory.transport_) \
+$(ls . | grep org.eclipse.cdt.debug.ui.memory.search_) \
+$(ls . | grep org.eclipse.cdt.debug.ui.memory.memorybrowser_) \
+$(ls . | grep org.eclipse.cdt.debug.ui_) \
+$(ls . | grep org.eclipse.cdt.debug.core_) \
+$(ls . | grep org.eclipse.cdt.core.native_) \
+$(ls . | grep 'org.eclipse.cdt.core.linux\..*' | grep -v source);
+do
+  sed -i -e "s,${PLUGIN%_*}\,,file\\\\:%{eclipse_base}/%{droplets}/cdt/eclipse/plugins/$PLUGIN\,," org.eclipse.cdt.debug.application_$DEBUGAPPLICATIONVERSION/scripts/config.ini
+done
+
+sed -i -e "s,org.eclipse.cdt.debug.application\,,file\\\\:%{eclipse_base}/%{droplets}/cdt/eclipse/plugins/org.eclipse.cdt.debug.application_$DEBUGAPPLICATIONVERSION/org.eclipse.cdt.debug.application_$DEBUGAPPLICATIONVERSION.jar\,," org.eclipse.cdt.debug.application_$DEBUGAPPLICATIONVERSION/scripts/config.ini
+
+sed -i -e "s,cp config.ini,cp %{eclipse_base}/%{droplets}/cdt/eclipse/plugins/org.eclipse.cdt.debug.application_$DEBUGAPPLICATIONVERSION/scripts/config.ini," org.eclipse.cdt.debug.application_$DEBUGAPPLICATIONVERSION/scripts/cdtdebug.sh
+sed -i -e "s,cp dev.properties,cp %{eclipse_base}/%{droplets}/cdt/eclipse/plugins/org.eclipse.cdt.debug.application_$DEBUGAPPLICATIONVERSION/scripts/dev.properties," org.eclipse.cdt.debug.application_$DEBUGAPPLICATIONVERSION/scripts/cdtdebug.sh
+install -D -m 755 org.eclipse.cdt.debug.application_$DEBUGAPPLICATIONVERSION/scripts/cdtdebug.sh $binInstallDir/cdtdebug
+popd
+
+echo %{eclipse_base}/%{droplets}/cdt/eclipse/plugins/org.eclipse.cdt.debug.application_$DEBUGAPPLICATIONVERSION/org.eclipse.cdt.debug.application_$DEBUGAPPLICATIONVERSION.jar >> .mfiles
 
 %{?scl: sed -i -e 's/Exec=cdtdebug/Exec=scl enable %{scl_name} cdtdebug/g' desktop/eclipse-cdt.desktop}
 %{?scl: sed -i -e 's/Icon=eclipse/Icon=%{?scl_prefix}eclipse/g' desktop/eclipse-cdt.desktop}
 %{?scl: sed -i -e 's,Name=Eclipse C/C++ Debugger,Name=DTS Eclipse C/C++ Debugger,g' desktop/eclipse-cdt.desktop}
-install -D desktop/eclipse-cdt.desktop $RPM_BUILD_ROOT/%{_root_datadir}/applications/%{?scl_prefix}eclipse-cdt.desktop
-desktop-file-validate $RPM_BUILD_ROOT/%{_root_datadir}/applications/%{?scl_prefix}eclipse-cdt.desktop
+install -D desktop/eclipse-cdt.desktop $RPM_BUILD_ROOT/usr/share/applications/%{name}.desktop
+desktop-file-validate $RPM_BUILD_ROOT/usr/share/applications/%{name}.desktop
 
 # man page
 cp man/cdtdebug.man $manInstallDir/cdtdebug.1
+%{?scl:EOF}
 
-# Unpack all existing feature jars
-for x in $installDir/eclipse/features/*.jar; do
-  dirname=`echo $x | sed -e 's:\\(.*\\)\\.jar:\\1:g'`
-  mkdir -p $dirname
-  unzip -q $x -d $dirname
-  rm $x
-done 
 
-# Remove lpgjavaruntime jar file
-rm -rf $installDir/eclipse/plugins/net.sourceforge.*
-
-# Remove llvm-support features/plugins
-rm -rf $installDir/eclipse/plugins/*llvm*
-rm -rf $installDir/eclipse/features/*llvm*
-rm -rf $testInstallDir/*llvm*
-
-# Move upc, xlc, and lrparser plugins/features to parsers install area.
-mkdir -p $parsersInstallDir/eclipse/features $parsersInstallDir/eclipse/plugins
-mv $installDir/eclipse/features/*xlc* $parsersInstallDir/eclipse/features
-mv $installDir/eclipse/plugins/*xlc* $parsersInstallDir/eclipse/plugins
-mv $installDir/eclipse/features/*lrparser* $parsersInstallDir/eclipse/features
-mv $installDir/eclipse/plugins/*lrparser* $parsersInstallDir/eclipse/plugins
-mv $installDir/eclipse/features/*upc* $parsersInstallDir/eclipse/features
-mv $installDir/eclipse/plugins/*upc* $parsersInstallDir/eclipse/plugins
-pushd $parsersInstallDir/eclipse/plugins
-ln -s %{_javadir}/lpgjavaruntime.jar net.sourceforge.lpg.lpgjavaruntime_1.1.0.jar
-popd
-
-%if %{_enable_linuxtools} == 1
-# Move docker launcher plugins/features to docker install area.
-mkdir -p $dockerInstallDir/eclipse/features $dockerInstallDir/eclipse/plugins
-mv $installDir/eclipse/features/*docker* $dockerInstallDir/eclipse/features
-mv $installDir/eclipse/plugins/*docker* $dockerInstallDir/eclipse/plugins
-%endif
-
-mkdir -p $sdkInstallDir/eclipse/features $sdkInstallDir/eclipse/plugins
-mv $installDir/eclipse/features/*source* $sdkInstallDir/eclipse/features
-mv $installDir/eclipse/plugins/*source* $sdkInstallDir/eclipse/plugins
-mv $installDir/eclipse/plugins/org.eclipse.cdt.doc.isv_* $sdkInstallDir/eclipse/plugins
-mv $installDir/eclipse/features/*sdk* $sdkInstallDir/eclipse/features
-mv $installDir/eclipse/plugins/*sdk* $sdkInstallDir/eclipse/plugins
-
-rm -rf $installDir/eclipse/features/org.eclipse.cdt.master_*
-rm -rf $installDir/eclipse/plugins/org.eclipse.ant.optional.junit_*
-rm -rf $installDir/eclipse/plugins/org.eclipse.test_*
-
-# remove repo stuff that shouldn't be in dropins folder
-rm -rf $installDir/eclipse/artifacts.jar
-rm -rf $installDir/eclipse/content.jar
-rm -rf $installDir/eclipse/binary
-
-%files
-%{eclipse_base}/dropins/cdt
+%files -f .mfiles
 %{_bindir}/cdtdebug
-%{_root_datadir}/applications/*
+/usr/share/applications/*
 %{_mandir}/man1/cdtdebug.1*
 %doc releng/org.eclipse.cdt.releng/epl-v10.html
 %doc releng/org.eclipse.cdt.releng/notice.html
 
-%files sdk
-%{eclipse_base}/dropins/cdt-sdk
+%files sdk -f .mfiles-sdk
 %doc releng/org.eclipse.cdt.releng/epl-v10.html
 %doc releng/org.eclipse.cdt.releng/notice.html
 
-%files parsers
-%{eclipse_base}/dropins/cdt-parsers
+%files parsers -f .mfiles-parsers
 %doc releng/org.eclipse.cdt.releng/epl-v10.html
 %doc releng/org.eclipse.cdt.releng/notice.html
 
-%files tests
-%{_javadir}/eclipse-cdt-tests
+%files tests -f .mfiles-tests
+%{_bindir}/eclipse-runCDTTestBundles
 %doc releng/org.eclipse.cdt.releng/epl-v10.html
 %doc releng/org.eclipse.cdt.releng/notice.html
 
-%if %{_enable_linuxtools} == 1
-%files docker
-%{eclipse_base}/dropins/cdt-docker
+%files qt -f .mfiles-qt
+%doc releng/org.eclipse.cdt.releng/epl-v10.html
+%doc releng/org.eclipse.cdt.releng/notice.html
+
+%if %{_enable_container_and_remote_support} == 1
+
+%files docker -f .mfiles-docker
 %doc releng/org.eclipse.cdt.releng/epl-v10.html
 %doc releng/org.eclipse.cdt.releng/notice.html
 %endif
 
 %changelog
-* Fri Oct 30 2015 Jeff Johnston <jjohnstn@redhat.com> - 1:8.7.0-8
-- Fix additional regression in exit not being shown in console on debug
-- Resolves: #rhbz1261915
+* Wed Apr 06 2016 Jeff Johnston <jjohnstnm@redhat.com> - 1:8.8.1-9.3
+- Fix Connection setting in C/C++ Docker launch configuration
+- Resolves: #rhbz1279800
 
-* Thu Sep 17 2015 Jeff Johnston <jjohnstn@redhat.com> - 1:8.7.0-7
-- Fix regression in exit code being shown in console on run
-- Resolves: #rhbz1261915
+* Thu Mar 31 2016 Mat Booth <mat.booth@redhat.com> - 1:8.8.1-9.2
+- Fix missing resources for debug app tests
 
-* Wed Aug 05 2015 Jeff Johnston <jjohnstn@redhat.com> - 1:8.7.0-6
-- Change stand-alone debugger config.ini to use javax.annotation-api
-  and go back to using org.eclipse.lucene.analysis
-- Resolves: #rhbz1247471
+* Tue Mar 29 2016 Mat Booth <mat.booth@redhat.com> - 1:8.8.1-9.1
+- Import latest from Fedora
 
-* Thu Jul 30 2015 Jeff Johnston <jjohnstn@redhat.com> - 1:8.7.0-5
-- Add missing test resources
-- Resolves: #rhbz1236035
+* Thu Mar 10 2016 Mat Booth <mat.booth@redhat.com> - 1:8.8.1-9
+- Make standalone debugger work with all versions of lucene
 
-* Tue Jul 28 2015 Jeff Johnston <jjohnstn@redhat.com> - 1:8.7.0-4
-- Fix stand-alone debugger config.ini to include javax.el-api
+* Thu Mar 10 2016 Mat Booth <mat.booth@redhat.com> - 1:8.8.1-8
+- Use global instead of define
+- Move more bundles into SDK that should be there
+- Remove forbidden SCL macros
+- Minor other changes to make it easier to auto-SCLise
 
-* Mon Jul 20 2015 Mat Booth <mat.booth@redhat.com> - 1:8.7.0-3.1
-- Apply patches cleanly to avoid shipping leftovers
+* Mon Feb 29 2016 Alexander Kurtakov <akurtako@redhat.com> 1:8.8.1-7
+- Update to upstream 8.8.1 release.
 
-* Thu Jul 16 2015 Jeff Johnston <jjohnstn@redhat.com> 1:8.7.0-3
-- Enable linuxtools so full CDT build occurs.
+* Mon Feb 29 2016 Mat Booth <mat.booth@redhat.com> - 1:8.8.0-7.2
+- Rebuild 2016-02-29
 
-* Wed Jul 15 2015 Jeff Johnston <jjohnstn@redhat.com> 1:8.7.0-2
-- Break up bootstrap into two phases
-- Enable remote phase so eclipse-linuxtools can build
-- Remove neko and xerces stuff which isn't needed here any more
+* Tue Feb 16 2016 Mat Booth <mat.booth@redhat.com> - 1:8.8.0-7.1
+- Import latest from Fedora
 
-* Thu Jul 09 2015 Jeff Johnston <jjohnstn@redhat.com> 1:8.7.0-1
-- Initial CDT 8.7.0 offering (Mars SR0 release)
-- Use macro to control docker and remote support to allow
-  boot-strapping CDT for use by eclipse-remote and
-  eclipse-linuxtools-docker packages
+* Tue Feb 09 2016 Roland Grunberg <rgrunber@redhat.com> - 1:8.8.0-7
+- Update to use proper xmvn provided macros.
+- Fix CDT GDB Standalone Debugger.
+
+* Thu Feb 04 2016 Roland Grunberg <rgrunber@redhat.com> - 1:8.8.0-6
+- Add symbolic links for google-gson and apache-commons-compress in arduino.
+- Resolves: rhbz#1302131.
+
+* Wed Feb 03 2016 Fedora Release Engineering <releng@fedoraproject.org> - 1:8.8.0-5
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_24_Mass_Rebuild
+
+* Mon Nov 23 2015 Alexander Kurtakov <akurtako@redhat.com> 1:8.8.0-4
+- Drop old patches and organize them.
+
+* Thu Oct 08 2015 Mat Booth <mat.booth@redhat.com> - 1:8.8.0-3
+- Perform full build
+- Exclude docker plugins on Fedora < 23
+
+* Thu Oct 8 2015 Alexander Kurtakov <akurtako@redhat.com> 1:8.8.0-2
+- Split qt feature into subpackage with proper deps to qml, qtquick, qmake so generated project works.
+- Disable brp-repack script as it just slows down the build.
+
+* Wed Oct 07 2015 Mat Booth <mat.booth@redhat.com> - 1:8.8.0-1
+- Update to Mars.1 release
+- Bootstrap mode for secondary arches
+
+* Mon Sep 21 2015 Jeff Johnston <jjohnstn@redhat.com> - 1:8.7.0-10
+- Fix missing test resources
+- Fix missing exit code in console
+
+* Tue Aug 04 2015 Roland Grunberg <rgrunber@redhat.com> - 1:8.7.0-9
+- Add script for automatically launching CDT Test Bundles.
+
+* Fri Jul 10 2015 Mat Booth <mat.booth@redhat.com> - 1:8.7.0-8
+- No longer R/BR nekohtml
+
+* Tue Jul 07 2015 Jeff Johnston <jjohnstn@redhat.com> 1:8.7.0-7
+- Change macro controlling docker support to also control remote support
 - Disable autotools and remote plug-ins/features if macro is 0
-- Make initial build a non-full-build with macro set to 0
+- This allows boot-strapping CDT for use by eclipse-remote and
+  eclipse-linuxtools-docker packages
  
+* Thu Jul 02 2015 Jeff Johnston <jjohnstn@redhat.com> 1:8.7.0-6
+- Add missing src file test resources referred to by test cases.
+
+* Mon Jun 29 2015 Jeff Johnston <jjohnstn@redhat.com> 1:8.7.0-5
+- Fix for bug 1235942.
+- Fix up some dependencies in the config.ini file that have changed their
+  OSGI reference in rawhide.
+
+* Fri Jun 26 2015 Jeff Johnston <jjohnstn@redhat.com> 1:8.7.0-4
+- Fix for bug 1235942.
+- Add back patch3 which is needed to set up the config.ini file properly.
+- Also add some new dependencies to the config.ini file that were added
+  as part of CDT 8.7.
+
+* Fri Jun 26 2015 Jeff Johnston <jjohnstn@redhat.com> 1:8.7.0-3
+- Fix for bug 1235945.
+- Move Docker launcher plug-ins to own package: eclipse-cdt-docker.
+
+* Thu Jun 25 2015 Jeff Johnston <jjohnstn@redhat.com> 1:8.7.0-2
+- Use simpler macro to control container support and fix macro tests.
+
+* Tue Jun 23 2015 Jeff Johnston <jjohnstn@redhat.com> 1:8.7.0-1
+- Switch to use CDT_8_7 tag.
+- Add with conditional to remove container support or add it in.
+
+* Mon Jun 15 2015 Alexander Kurtakov <akurtako@redhat.com> 1:8.7.0-0.6.gitd13a53c
+- Fix build with Tycho 0.23.
+- Update to newer snapshot.
+- Drop rse R as it's autogen.
+
+* Thu Jun 4 2015 Alexander Kurtakov <akurtako@redhat.com> 1:8.7.0-0.5.git6c36f7f
+- Disable jacoco plugin and remove useless directory from the build.
+
+* Thu Jun 4 2015 Alexander Kurtakov <akurtako@redhat.com> 1:8.7.0-0.4.git6c36f7f
+- Add arduino subpackage and enable building arduino plugins.
+
+* Wed Jun 3 2015 Alexander Kurtakov <akurtako@redhat.com> 1:8.7.0-0.3.git6c36f7f
+- Drop Linux Tools libhover compilation and Recommend eclipse-linuxtools-libhover instead. 
+
+* Wed Jun 3 2015 Alexander Kurtakov <akurtako@redhat.com> 1:8.7.0-0.2.git6c36f7f
+- Newer snapshot.
+- Enable remote feature now that deps are available.
+- Drop Group tags.
+
+* Mon Jun 1 2015 Alexander Kurtakov <akurtako@redhat.com> 1:8.7.0-0.1.git136c034
+- Update to 8.7.0 pre-release.
