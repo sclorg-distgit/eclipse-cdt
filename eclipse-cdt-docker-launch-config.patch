@@ -1,0 +1,41 @@
+From 2233b522de3c6c5ae272b91e817fd0e531b35002 Mon Sep 17 00:00:00 2001
+From: Jeff Johnston <jjohnstn@redhat.com>
+Date: Wed, 6 Apr 2016 17:22:12 -0400
+Subject: [PATCH] Fix Connection drop-down in Run Image Launch configuration
+
+- drop-down doesn't cause Apply button to activate when
+  changing Connections from previous connection
+- fix setting of default connectionName to avoid NPE
+- move setting of connectionURI when user changes drop-down
+
+Change-Id: I9dbc8828a6e6321e9cd1392d4e8c4dbdf2a954db
+---
+ .../cdt/internal/docker/launcher/ContainerTab.java |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
+
+diff --git a/launch/org.eclipse.cdt.docker.launcher/src/org/eclipse/cdt/internal/docker/launcher/ContainerTab.java b/launch/org.eclipse.cdt.docker.launcher/src/org/eclipse/cdt/internal/docker/launcher/ContainerTab.java
+index 2cb4f83..d60a96d 100644
+--- a/launch/org.eclipse.cdt.docker.launcher/src/org/eclipse/cdt/internal/docker/launcher/ContainerTab.java
++++ b/launch/org.eclipse.cdt.docker.launcher/src/org/eclipse/cdt/internal/docker/launcher/ContainerTab.java
+@@ -77,10 +77,10 @@ public class ContainerTab extends AbstractLaunchConfigurationTab implements
+ 			if (connection != null)
+ 				connection.removeImageListener(containerTab);
+ 			connection = connections[index];
++			connectionUri = connection.getUri();
+ 			if (!connectionName.equals(connection.getName()))
+ 				updateLaunchConfigurationDialog();
+ 			connectionName = connection.getName();
+-			connectionUri = connection.getUri();
+ 			connection.addImageListener(containerTab);
+ 		}
+ 
+@@ -330,6 +330,7 @@ public class ContainerTab extends AbstractLaunchConfigurationTab implements
+ 		if (connections.length > 0) {
+ 			connectionSelector.setText(connectionNames[defaultIndex]);
+ 			connection = connections[defaultIndex];
++			connectionName = connection.getName();
+ 			connectionUri = connection.getUri();
+ 		}
+ 	}
+-- 
+1.7.1
