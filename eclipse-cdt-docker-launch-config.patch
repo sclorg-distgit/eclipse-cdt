@@ -1,4 +1,4 @@
-From 2233b522de3c6c5ae272b91e817fd0e531b35002 Mon Sep 17 00:00:00 2001
+From 8c4c0412ff8371f71e27c28ced9d8c4265e874cc Mon Sep 17 00:00:00 2001
 From: Jeff Johnston <jjohnstn@redhat.com>
 Date: Wed, 6 Apr 2016 17:22:12 -0400
 Subject: [PATCH] Fix Connection drop-down in Run Image Launch configuration
@@ -7,29 +7,55 @@ Subject: [PATCH] Fix Connection drop-down in Run Image Launch configuration
   changing Connections from previous connection
 - fix setting of default connectionName to avoid NPE
 - move setting of connectionURI when user changes drop-down
+- add check in isvalid() to verify image exists in connection
+- reload images when changing connection and ignore parent images
 
 Change-Id: I9dbc8828a6e6321e9cd1392d4e8c4dbdf2a954db
 ---
- .../cdt/internal/docker/launcher/ContainerTab.java |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
+ .../cdt/internal/docker/launcher/ContainerTab.java |   32 ++++++++++++++-----
+ .../cdt/internal/docker/launcher/Messages.java     |    1 +
+ .../internal/docker/launcher/messages.properties   |    1 +
+ 3 files changed, 25 insertions(+), 9 deletions(-)
 
 diff --git a/launch/org.eclipse.cdt.docker.launcher/src/org/eclipse/cdt/internal/docker/launcher/ContainerTab.java b/launch/org.eclipse.cdt.docker.launcher/src/org/eclipse/cdt/internal/docker/launcher/ContainerTab.java
-index 2cb4f83..d60a96d 100644
+index 2cb4f83..85daff9 100644
 --- a/launch/org.eclipse.cdt.docker.launcher/src/org/eclipse/cdt/internal/docker/launcher/ContainerTab.java
 +++ b/launch/org.eclipse.cdt.docker.launcher/src/org/eclipse/cdt/internal/docker/launcher/ContainerTab.java
-@@ -77,10 +77,10 @@ public class ContainerTab extends AbstractLaunchConfigurationTab implements
+@@ -55,7 +55,7 @@ public class ContainerTab extends AbstractLaunchConfigurationTab implements
+ 	private List directoriesList;
+ 	private String imageName;
+ 	private String connectionName;
+-	private String connectionUri;
++	private String connectionUri = "";
+ 	private Boolean keepValue;
+ 	private Boolean stdinValue;
+ 	private IDockerConnection connection;
+@@ -77,11 +77,12 @@ public class ContainerTab extends AbstractLaunchConfigurationTab implements
  			if (connection != null)
  				connection.removeImageListener(containerTab);
  			connection = connections[index];
+-			if (!connectionName.equals(connection.getName()))
 +			connectionUri = connection.getUri();
- 			if (!connectionName.equals(connection.getName()))
++			if (!connectionName.equals(connection.getName())) {
  				updateLaunchConfigurationDialog();
++				initializeImageCombo();
++			}
  			connectionName = connection.getName();
 -			connectionUri = connection.getUri();
- 			connection.addImageListener(containerTab);
+-			connection.addImageListener(containerTab);
  		}
  
-@@ -330,6 +330,7 @@ public class ContainerTab extends AbstractLaunchConfigurationTab implements
+ 	};
+@@ -321,15 +322,13 @@ public class ContainerTab extends AbstractLaunchConfigurationTab implements
+ 				defaultIndex = i;
+ 		}
+ 		if (defaultIndex < 0) {
+-			setWarningMessage(Messages.bind(
+-					Messages.ContainerTab_Warning_Connection_Not_Found,
+-					connectionUri, connections[0].getName()));
+ 			defaultIndex = 0;
+ 		}
+ 		connectionSelector.setItems(connectionNames);
  		if (connections.length > 0) {
  			connectionSelector.setText(connectionNames[defaultIndex]);
  			connection = connections[defaultIndex];
@@ -37,5 +63,59 @@ index 2cb4f83..d60a96d 100644
  			connectionUri = connection.getUri();
  		}
  	}
+@@ -461,11 +460,26 @@ public class ContainerTab extends AbstractLaunchConfigurationTab implements
+ 	@Override
+ 	public boolean isValid(ILaunchConfiguration launchConfig) {
+ 		try {
+-			return launchConfig.getAttribute(ILaunchConstants.ATTR_IMAGE,
+-					(String) null) != null;
++			String image = launchConfig
++					.getAttribute(ILaunchConstants.ATTR_IMAGE, (String) null);
++			if (image == null)
++				return false;
++			int index = image.lastIndexOf(':'); // $NON-NLS-1$
++			if (index <= 0)
++				return false;
++			if (connection.hasImage(image.substring(0, index),
++					image.substring(index + 1))) {
++				setWarningMessage(null);
++				return true;
++			} else {
++				setWarningMessage(Messages.bind(
++						Messages.ContainerTab_Warning_Image_Not_Found,
++						image, connections[0].getName()));
++			}
+ 		} catch (CoreException e) {
+ 			return false;
+ 		}
++		return false;
+ 	}
+ 
+ 	@Override
+diff --git a/launch/org.eclipse.cdt.docker.launcher/src/org/eclipse/cdt/internal/docker/launcher/Messages.java b/launch/org.eclipse.cdt.docker.launcher/src/org/eclipse/cdt/internal/docker/launcher/Messages.java
+index e4bf6f5..0ed4662 100644
+--- a/launch/org.eclipse.cdt.docker.launcher/src/org/eclipse/cdt/internal/docker/launcher/Messages.java
++++ b/launch/org.eclipse.cdt.docker.launcher/src/org/eclipse/cdt/internal/docker/launcher/Messages.java
+@@ -44,6 +44,7 @@ public class Messages extends NLS {
+ 	public static String ContainerTab_Error_No_Connections;
+ 	public static String ContainerTab_Error_No_Images;
+ 	public static String ContainerTab_Warning_Connection_Not_Found;
++	public static String ContainerTab_Warning_Image_Not_Found;
+ 
+ 	public static String Remote_GDB_Debugger_Options;
+ 	public static String Gdbserver_Settings_Tab_Name;
+diff --git a/launch/org.eclipse.cdt.docker.launcher/src/org/eclipse/cdt/internal/docker/launcher/messages.properties b/launch/org.eclipse.cdt.docker.launcher/src/org/eclipse/cdt/internal/docker/launcher/messages.properties
+index 4422fb0..e2cdf46 100644
+--- a/launch/org.eclipse.cdt.docker.launcher/src/org/eclipse/cdt/internal/docker/launcher/messages.properties
++++ b/launch/org.eclipse.cdt.docker.launcher/src/org/eclipse/cdt/internal/docker/launcher/messages.properties
+@@ -37,6 +37,7 @@ ContainerTab_Error_Reading_Configuration=Error occurred reading the launch confi
+ ContainerTab_Error_No_Connections=No Docker Connections exist
+ ContainerTab_Error_No_Images=No Docker Images exist
+ ContainerTab_Warning_Connection_Not_Found=Docker Connection: {0} for Launch Configuration not found: defaulting to {1}
++ContainerTab_Warning_Image_Not_Found=Docker Image: {0} is not a valid pulled image in current Connection: {1}
+ 
+ Remote_GDB_Debugger_Options=Docker Container GDB Debugger Options
+ Gdbserver_Settings_Tab_Name=Gdbserver Settings
 -- 
 1.7.1
+

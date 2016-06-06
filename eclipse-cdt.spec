@@ -2,7 +2,7 @@
 %{!?scl:%global pkg_name %{name}}
 %{?java_common_find_provides_and_requires}
 
-%global baserelease 3
+%global baserelease 4
 
 %global debug_package %{nil}
 %global _enable_debug_packages 0
@@ -418,6 +418,10 @@ cp man/cdtdebug.man $manInstallDir/cdtdebug.1
 %endif
 
 %changelog
+* Fri Apr 15 2016 Jeff Johnston <jjohnstnm@redhat.com> - 1:8.8.1-9.4
+- Update previous patch to fix issue with image lists not being updated
+- Resolves: #rhbz1279800
+
 * Wed Apr 06 2016 Jeff Johnston <jjohnstnm@redhat.com> - 1:8.8.1-9.3
 - Fix Connection setting in C/C++ Docker launch configuration
 - Resolves: #rhbz1279800
