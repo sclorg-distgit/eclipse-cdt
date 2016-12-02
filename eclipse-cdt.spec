@@ -2,7 +2,7 @@
 %{!?scl:%global pkg_name %{name}}
 %{?java_common_find_provides_and_requires}
 
-%global baserelease 8
+%global baserelease 9
 
 # Change following to 0 to default to no container/remote support when building for 
 # first time in a release...this is needed to build eclipse-linuxtools-docker and
@@ -313,6 +313,9 @@ sed -i -e 's/org.freemarker/org.freemarker.freemarker/' \
 # Drop unnecessary dep on log4j
 sed -i -e '/log4j/d' build/org.eclipse.cdt.autotools.ui.tests/META-INF/MANIFEST.MF
 
+# Remove org.eclipse.cdt.launch.remote.source to prevent cycle back to SDK
+%pom_xpath_remove "plugin[@id='org.eclipse.cdt.launch.remote.source']" cross/org.eclipse.cdt.launch.remote-feature/feature.xml
+
 %mvn_package "::pom::" __noinstall
 %mvn_package ::jar:sources: sdk
 %mvn_package ":*.source{,.feature}" sdk
@@ -485,6 +488,10 @@ cp man/cdtdebug.man $manInstallDir/cdtdebug.1
 %endif
 
 %changelog
+* Mon Sep 12 2016 Roland Grunberg <rgrunber@redhat.com> - 1:9.0.0-2.9
+- Break cycle from main CDT package to the SDK.
+- Resolves: rhbz#1373096.
+
 * Tue Aug 02 2016 Mat Booth <mat.booth@redhat.com> - 1:9.0.0-2.8
 - Fix permissions on native libraries
 
