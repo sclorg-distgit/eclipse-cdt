@@ -2,7 +2,7 @@
 %{!?scl:%global pkg_name %{name}}
 %{?java_common_find_provides_and_requires}
 
-%global baserelease 9
+%global baserelease 1
 
 # Change following to 0 to default to no container/remote support when building for 
 # first time in a release...this is needed to build eclipse-linuxtools-docker and
@@ -12,32 +12,30 @@
 
 Epoch: 1
 
-%global major                   9
-%global minor                   0
-%global majmin                  %{major}.%{minor}
-%global micro                   0
-%global eclipse_base            %{_libdir}/eclipse
-%global cdt_snapshot            org.eclipse.cdt-CDT_9_0_0
-%global template_snapshot       org.eclipse.tools.templates-e87ce036ebc1ac86d1aaee807e4d9ff1759b61d9
+%global eclipse_base            %{_datadir}/eclipse
+%global cdt_snapshot            org.eclipse.cdt-CDT_9_2_1
+%global template_snapshot       org.eclipse.tools.templates-0435f275891b23060faa5cc33664c6a2fefbf2ac
 
-# All arches line up except i386 -> x86
 %ifarch %{ix86}
-%global eclipse_arch    x86
-%else
-%ifarch %{arm}
-%global eclipse_arch    arm
-%else
-%global eclipse_arch    %{_arch}
+    %global eclipse_arch x86
 %endif
+%ifarch %{arm}
+    %global eclipse_arch arm
+%endif
+%ifarch ppc64 ppc64p7
+    %global eclipse_arch ppc64
+%endif
+%ifarch s390 s390x x86_64 aarch64 ppc64le
+    %global eclipse_arch %{_arch}
 %endif
 
 # Desktop file information
-%global app_name %{?app_name_prefix} Eclipse C/C++ Debugger
+%global app_name %{?app_name_prefix}%{!?app_name_prefix:Eclipse} C/C++ Debugger
 %global app_exec %{?app_exec_prefix} cdtdebug
 
 Summary:        Eclipse C/C++ Development Tools (CDT) plugin
 Name:           %{?scl_prefix}eclipse-cdt
-Version:        %{majmin}.%{micro}
+Version:        9.2.1
 Release:        2.%{baserelease}%{?dist}
 License:        EPL and CPL
 URL:            http://www.eclipse.org/cdt
@@ -53,21 +51,23 @@ Source3: eclipse-cdt.desktop
 Source4: cdtdebug.man
 
 # Script to run the tests in Xvnc
-Source5: %{pkg_name}-runtests.sh
+Source5: eclipse-cdt-runtests.sh
 
 # Following fixes cdtdebug.sh script to get proper platform filesystem plugin
-Patch1: %{pkg_name}-cdtdebug.patch
+Patch1: eclipse-cdt-cdtdebug.patch
 
 # Following fixes Standalone Debugger config.ini file to use bundle symbolic names
-Patch2: %{pkg_name}-config-ini.patch
+Patch2: eclipse-cdt-config-ini.patch
 
 # Following fixes Standalone Debugger README file to refer to /usr/bin/cdtdebug
-Patch3: %{pkg_name}-cdtdebug-readme.patch
+Patch3: eclipse-cdt-cdtdebug-readme.patch
 
 %if ! %{_enable_container_and_remote_support}
 Patch4: bootstrap.patch
 %endif
 
+BuildRequires: make
+BuildRequires: gcc-c++
 BuildRequires: %{?scl_prefix}tycho
 BuildRequires: %{?scl_prefix}tycho-extras
 BuildRequires: %{?scl_prefix}eclipse-license
@@ -84,22 +84,30 @@ BuildRequires: %{?scl_prefix}freemarker
 BuildRequires: %{?scl_prefix}mockito
 %if %{_enable_container_and_remote_support}
 %if %{_enable_container_support}
-BuildRequires: %{?scl_prefix}eclipse-linuxtools-docker
+BuildRequires: %{?scl_prefix}eclipse-linuxtools-docker >= 5.3.0
 %endif
 BuildRequires: %{?scl_prefix}eclipse-remote >= 2.1.0
-BuildRequires: %{?scl_prefix}eclipse-launchbar
+BuildRequires: %{?scl_prefix}eclipse-launchbar >= 1:2.1.0
 %endif
 
 Requires:      gdb make gcc-c++
 %if %{_enable_container_and_remote_support}
 Requires:      autoconf automake libtool
 Requires:      %{?scl_prefix}eclipse-remote >= 2.1.0
-Requires:      %{?scl_prefix}eclipse-launchbar
+Requires:      %{?scl_prefix}eclipse-launchbar >= 1:2.1.0
 %endif
+
 
 
 %description
 Eclipse features and plugins that are useful for C and C++ development.
+
+%package native
+Summary:        Eclipse C/C++ Development Tools (CDT) Natives
+Requires:      %{?scl_prefix}eclipse-filesystem
+
+%description native
+Architecture specific parts of CDT.
 
 %package parsers
 Summary:        Eclipse C/C++ Development Tools (CDT) Optional Parsers
@@ -122,11 +130,22 @@ Optional llvm parsers for the CDT.
 
 %if %{_enable_container_and_remote_support}
 
+%if ! 0%{?rhel}
+
+%package arduino
+Summary:        Arduino C++ Tools
+Requires:       %{name} = %{epoch}:%{version}-%{release}
+
+%description arduino
+Extensions to support Arduino C++ projects in Eclipse.
+%endif
+
 %if %{_enable_container_support}
+
 %package docker
 Summary:        C/C++ Docker Launcher
 Requires:       %{name} = %{epoch}:%{version}-%{release}
-Requires:       %{?scl_prefix}eclipse-linuxtools-docker
+Requires:       %{?scl_prefix}eclipse-linuxtools-docker >= 5.3.0
 
 %description docker
 Special launcher for CDT to allow launching and debugging C/C++ applications
@@ -152,10 +171,13 @@ Extensions to support Qt projects and objects in the indexer.
 %package tests
 Summary:        Eclipse C/C++ Development Tools (CDT) Tests
 Requires:       %{name} = %{epoch}:%{version}-%{release}
-Requires:       %{name}-parsers = %{epoch}:%{version}-%{release}
 Requires:       %{name}-llvm = %{epoch}:%{version}-%{release}
+Requires:       %{name}-parsers = %{epoch}:%{version}-%{release}
 %if %{_enable_container_and_remote_support}
 Requires:       %{name}-docker = %{epoch}:%{version}-%{release}
+%if ! 0%{?rhel}
+Requires:       %{name}-arduino = %{epoch}:%{version}-%{release}
+%endif
 Requires:       %{name}-qt = %{epoch}:%{version}-%{release}
 %endif
 Requires:       %{?scl_prefix}eclipse-tests
@@ -167,13 +189,12 @@ Test plugins for the CDT.
 %package sdk
 Summary:        Eclipse C/C++ Development Tools (CDT) SDK plugin
 Requires:       %{name} = %{epoch}:%{version}-%{release}
-Requires:       %{?scl_prefix}eclipse-pde
 
 %description sdk
 Source for Eclipse CDT for use within Eclipse.
 
 %prep
-%{?scl:scl enable %{scl_maven} %{scl} - << "EOF"}
+%{?scl:scl enable %{scl_maven} %{scl} - << "EOFSCL"}
 set -e -x
 %setup -q -n %{cdt_snapshot}
 
@@ -185,7 +206,7 @@ cp %{SOURCE3} desktop
 mkdir man
 cp %{SOURCE4} man
 
-%patch1 -p1 -b orig
+%patch1 -p0
 %patch2 -p1
 %patch3 -p1
 
@@ -208,9 +229,7 @@ sed -i -e 's/x86/%{eclipse_arch}/g' pom.xml
 sed -i -e 's/x86/%{eclipse_arch}/g' META-INF/MANIFEST.MF
 mv os/linux/x86 os/linux/%{eclipse_arch}
 popd
-pushd org.eclipse.cdt.core.linux
-sed -i -e 's/x86/%{eclipse_arch}/g' pom.xml
-popd
+sed -i -e 's/x86/%{eclipse_arch}/g' org.eclipse.cdt.core.linux/pom.xml
 popd
 pushd releng/org.eclipse.cdt.native-feature
 sed -i -e 's/"org.eclipse.cdt.core.linux.x86"/"org.eclipse.cdt.core.linux.%{eclipse_arch}"/g' feature.xml
@@ -218,6 +237,15 @@ sed -i -e 's/arch="x86"/arch="%{eclipse_arch}"/' feature.xml
 popd
 sed -i -e "s|org.eclipse.cdt.core.linux.x86</module>|org.eclipse.cdt.core.linux.%{eclipse_arch}</module>|g" pom.xml
 %endif
+%ifarch s390x x86_64 aarch64 ppc64le ppc64
+sed -i -e 's|linux/x86_64/|linux/%{eclipse_arch}/|' \
+  native/org.eclipse.cdt.native.serial/jni/Makefile
+%else
+sed -i -e 's|linux/x86/|linux/%{eclipse_arch}/|' \
+  native/org.eclipse.cdt.native.serial/jni/Makefile
+%endif
+sed -i -e 's|-m.. -fPIC -D_REENTRANT|$(CFLAGS)|' \
+  native/org.eclipse.cdt.native.serial/jni/Makefile
 
 # Force the arch-specific plug-ins to be dir-shaped so that binary stripping works and the native files
 # aren't loaded into the user.home .eclipse configuration
@@ -268,6 +296,9 @@ mkdir -p native/org.eclipse.cdt.native.serial/os/linux/%{eclipse_arch} \
 %pom_disable_module build/org.eclipse.cdt.cmake-feature
 %pom_disable_module remote/org.eclipse.cdt.remote.core
 %pom_disable_module remote/org.eclipse.cdt.remote-feature
+%pom_disable_module toolchains/arduino/org.eclipse.cdt.arduino.core
+%pom_disable_module toolchains/arduino/org.eclipse.cdt.arduino.ui
+%pom_disable_module toolchains/arduino/org.eclipse.cdt.arduino-feature
 %else
 %if ! %{_enable_container_support}
 %pom_disable_module launch/org.eclipse.cdt.docker.launcher
@@ -275,10 +306,16 @@ mkdir -p native/org.eclipse.cdt.native.serial/os/linux/%{eclipse_arch} \
 %pom_disable_module launch/org.eclipse.cdt.docker.launcher.source-feature
 %endif
 %endif
+
+# Always disable arduino support on rhel
+%if 0%{?rhel}
 %pom_disable_module toolchains/arduino/org.eclipse.cdt.arduino.core
 %pom_disable_module toolchains/arduino/org.eclipse.cdt.arduino.ui
 %pom_disable_module toolchains/arduino/org.eclipse.cdt.arduino-feature
+%endif
 
+# Disable all bundles not relavent to the platform we currently building
+%pom_xpath_inject "pom:modules" "<module>core/org.eclipse.cdt.core.linux.ppc64le</module>" 
 for b in `ls core/ | grep -P -e 'org.eclipse.cdt.core\.(?!linux\.%{eclipse_arch}$|tests$|linux$|native$)'` ; do
   module=$(grep ">core/$b<" pom.xml || :)
   if [ -n "$module" ] ; then
@@ -291,10 +328,11 @@ for b in aix macosx win32 ; do
 done
 
 # Fix hamcrest and mockito deps
-sed -i -e 's/org.mockito/org.mockito.mockito-core/' -e 's/org.hamcrest/org.hamcrest.core/' \
+sed -i -e 's/org.mockito/org.mockito.mockito-core/' -e 's/org.hamcrest/org.hamcrest.library/' \
   dsf-gdb/org.eclipse.cdt.tests.dsf.gdb/META-INF/MANIFEST.MF
-%pom_disable_module dsf-gdb/org.eclipse.cdt.tests.dsf.gdb
-%pom_xpath_remove "plugin[@id='org.eclipse.cdt.tests.dsf.gdb']" releng/org.eclipse.cdt.testing-feature/feature.xml
+
+sed -i -e 's/org.mockito/org.mockito.mockito-core/' -e 's/org.hamcrest/org.hamcrest.library/' \
+  codan/org.eclipse.cdt.codan.checkers.ui.test/META-INF/MANIFEST.MF
 
 # Add template tools to the build
 tar xf %{SOURCE1} --strip-components=1 --exclude=%{template_snapshot}/pom.xml
@@ -313,14 +351,13 @@ sed -i -e 's/org.freemarker/org.freemarker.freemarker/' \
 # Drop unnecessary dep on log4j
 sed -i -e '/log4j/d' build/org.eclipse.cdt.autotools.ui.tests/META-INF/MANIFEST.MF
 
-# Remove org.eclipse.cdt.launch.remote.source to prevent cycle back to SDK
-%pom_xpath_remove "plugin[@id='org.eclipse.cdt.launch.remote.source']" cross/org.eclipse.cdt.launch.remote-feature/feature.xml
-
 %mvn_package "::pom::" __noinstall
-%mvn_package ::jar:sources: sdk
+%mvn_package "::jar:sources{,-feature}:" sdk
 %mvn_package ":*.source{,.feature}" sdk
 %mvn_package :*.sdk sdk
 %mvn_package :*.doc.isv sdk
+%mvn_package ":org.eclipse.cdt.core{,.native,.linux,.linux.%{eclipse_arch}}" native
+%mvn_package ":org.eclipse.cdt.native{,.serial}" native
 %mvn_package ":*.testsrunner.test" tests
 %mvn_package ":*.testsrunner*"
 %mvn_package ":*.test{,s}*" tests
@@ -329,41 +366,37 @@ sed -i -e '/log4j/d' build/org.eclipse.cdt.autotools.ui.tests/META-INF/MANIFEST.
 %mvn_package :org.eclipse.tools.templates.*
 %mvn_package :org.eclipse.cdt.arduino* arduino
 %mvn_package :org.eclipse.cdt.docker* docker
-%mvn_package :org.eclipse.cdt.managedbuilder.llvm* llvm
+%mvn_package ":org.eclipse.cdt.{managedbuilder.llvm,llvm.dsf}*" llvm
 %mvn_package :org.eclipse.cdt.qt* qt
 %mvn_package :org.eclipse.cdt.cmake* qt
 %mvn_package :org.eclipse.cdt*
-%{?scl:EOF}
+%{?scl:EOFSCL}
 
 
 %build
-%{?scl:scl enable %{scl_maven} %{scl} - << "EOF"}
+%{?scl:scl enable %{scl_maven} %{scl} - << "EOFSCL"}
 set -e -x
 export JAVA_HOME=%{_jvmdir}/java
 
 # Build native serial library
 pushd native/org.eclipse.cdt.native.serial/jni
-make ../os/linux/%{eclipse_arch}/libserial.so
+make CFLAGS="-fPIC %{optflags}" ../os/linux/%{eclipse_arch}/libserial.so
 popd
 
-# Exclude EquinoxResolver to avoid NPE occuring on arm
-%ifarch %{arm}
-export MAVEN_OPTS="-XX:CompileCommand=exclude,org/eclipse/tycho/core/osgitools/EquinoxResolver,newState"
-%endif
+# Exclude EquinoxResolver to avoid NPE occuring on arm and increase memory for s390
+export MAVEN_OPTS="-Xmx1024m -XX:CompileCommand=exclude,org/eclipse/tycho/core/osgitools/EquinoxResolver,newState"
 
 %mvn_build -j -f -- -Dtycho.local.keepTarget -Dskip-ppc64le -Dnative=linux.%{eclipse_arch}
-%{?scl:EOF}
+%{?scl:EOFSCL}
 
 
 %install
-%{?scl:scl enable %{scl_maven} %{scl} - << "EOF"}
+%{?scl:scl enable %{scl_maven} %{scl} - << "EOFSCL"}
 set -e -x
 %mvn_install
 
 binInstallDir=${RPM_BUILD_ROOT}/%{_bindir}
-manInstallDir=${RPM_BUILD_ROOT}/%{_mandir}/man1
 install -d -m755 $binInstallDir
-install -d -m755 $manInstallDir
 
 cat << EOFSCRIPT > eclipse-runCDTTestBundles
 #! /bin/bash
@@ -380,15 +413,13 @@ jar -cfmv org.eclipse.cdt.debug.application_$DEBUGAPPLICATIONVERSION.jar META-IN
 popd
 
 # Fix the dropin bundles to have full paths to their respective jar files as Eclipse start-up won't find them otherwise
+
 for PLUGIN in \
-$(ls . | grep org.eclipse.cdt.core.linux_) \
-$(ls . | grep org.eclipse.cdt.core_) \
 $(ls . | grep org.eclipse.cdt.debug.ui.memory.floatingpoint_) \
 $(ls . | grep org.eclipse.cdt.make.core_) \
 $(ls . | grep org.eclipse.cdt.dsf.ui_) \
 $(ls . | grep org.eclipse.cdt.debug.ui.memory.traditional_) \
 $(ls . | grep org.eclipse.cdt.ui_) \
-$(ls . | grep org.eclipse.cdt.core_) \
 $(ls . | grep org.eclipse.cdt.debug.application.doc_) \
 $(ls . | grep org.eclipse.cdt.dsf.gdb.ui_) \
 $(ls . | grep org.eclipse.cdt.debug.mi.ui_) \
@@ -405,10 +436,16 @@ $(ls . | grep org.eclipse.cdt.debug.ui.memory.search_) \
 $(ls . | grep org.eclipse.cdt.debug.ui.memory.memorybrowser_) \
 $(ls . | grep org.eclipse.cdt.debug.ui_) \
 $(ls . | grep org.eclipse.cdt.debug.core_) \
-$(ls . | grep org.eclipse.cdt.core.native_) \
-$(ls . | grep 'org.eclipse.cdt.core.linux\..*' | grep -v source);
-do
+$(ls . | grep org.eclipse.tools.templates.core_) \
+$(ls . | grep org.eclipse.tools.templates.ui_) ; do
   sed -i -e "s,${PLUGIN%_*}\,,file\\\\:%{eclipse_base}/droplets/cdt/eclipse/plugins/$PLUGIN\,," org.eclipse.cdt.debug.application_$DEBUGAPPLICATIONVERSION/scripts/config.ini
+done
+for PLUGIN in \
+$(cd %{buildroot}%{_libdir}/eclipse/droplets/cdt-native/eclipse/plugins && ls . | grep com.google.gson_) \
+$(cd %{buildroot}%{_libdir}/eclipse/droplets/cdt-native/eclipse/plugins && ls . | grep org.eclipse.cdt.core_) \
+$(cd %{buildroot}%{_libdir}/eclipse/droplets/cdt-native/eclipse/plugins && ls . | grep org.eclipse.cdt.core.linux_) \
+$(cd %{buildroot}%{_libdir}/eclipse/droplets/cdt-native/eclipse/plugins && ls . | grep org.eclipse.cdt.core.native_) ; do
+  sed -i -e "s,${PLUGIN%_*}\,,file\\\\:%{_libdir}/eclipse/droplets/cdt-native/eclipse/plugins/$PLUGIN\,," org.eclipse.cdt.debug.application_$DEBUGAPPLICATIONVERSION/scripts/config.ini
 done
 
 sed -i -e "s,org.eclipse.cdt.debug.application\,,file\\\\:%{eclipse_base}/droplets/cdt/eclipse/plugins/org.eclipse.cdt.debug.application_$DEBUGAPPLICATIONVERSION/org.eclipse.cdt.debug.application_$DEBUGAPPLICATIONVERSION.jar\,," org.eclipse.cdt.debug.application_$DEBUGAPPLICATIONVERSION/scripts/config.ini
@@ -443,10 +480,22 @@ sed -i -e "s|Icon=eclipse|Icon=%{name}|g" desktop/eclipse-cdt.desktop
 install -D desktop/eclipse-cdt.desktop $RPM_BUILD_ROOT/usr/share/applications/%{name}.desktop
 desktop-file-validate $RPM_BUILD_ROOT/usr/share/applications/%{name}.desktop
 
-# man page
-cp man/cdtdebug.man $manInstallDir/cdtdebug.1
-%{?scl:EOF}
+# Install man page
+install -D -m 644 man/cdtdebug.man $RPM_BUILD_ROOT/%{_mandir}/man1/cdtdebug.1
+%{?scl:EOFSCL}
 
+
+%post
+touch --no-create /usr/share/icons/hicolor
+if [ -x /usr/bin/gtk-update-icon-cache ]; then
+  gtk-update-icon-cache -q /usr/share/icons/hicolor
+fi
+
+%postun
+touch --no-create /usr/share/icons/hicolor
+if [ -x /usr/bin/gtk-update-icon-cache ]; then
+  gtk-update-icon-cache -q /usr/share/icons/hicolor
+fi
 
 %files -f .mfiles
 %{_bindir}/cdtdebug
@@ -454,6 +503,10 @@ cp man/cdtdebug.man $manInstallDir/cdtdebug.1
 /usr/share/pixmaps/*
 /usr/share/icons/*/*/apps/*
 %{_mandir}/man1/cdtdebug.1*
+%doc releng/org.eclipse.cdt.sdk/epl-v10.html
+%doc releng/org.eclipse.cdt.sdk/notice.html
+
+%files native -f .mfiles-native
 %doc releng/org.eclipse.cdt.sdk/epl-v10.html
 %doc releng/org.eclipse.cdt.sdk/notice.html
 
@@ -480,45 +533,67 @@ cp man/cdtdebug.man $manInstallDir/cdtdebug.1
 %doc releng/org.eclipse.cdt.sdk/epl-v10.html
 %doc releng/org.eclipse.cdt.sdk/notice.html
 
+%if ! 0%{?rhel}
+
+%files arduino -f .mfiles-arduino
+%doc releng/org.eclipse.cdt.sdk/epl-v10.html
+%doc releng/org.eclipse.cdt.sdk/notice.html
+%endif
+
 %if %{_enable_container_support}
+
 %files docker -f .mfiles-docker
 %doc releng/org.eclipse.cdt.sdk/epl-v10.html
 %doc releng/org.eclipse.cdt.sdk/notice.html
+
 %endif
 %endif
 
 %changelog
-* Mon Sep 12 2016 Roland Grunberg <rgrunber@redhat.com> - 1:9.0.0-2.9
-- Break cycle from main CDT package to the SDK.
-- Resolves: rhbz#1373096.
-
-* Tue Aug 02 2016 Mat Booth <mat.booth@redhat.com> - 1:9.0.0-2.8
-- Fix permissions on native libraries
-
-* Tue Aug 02 2016 Mat Booth <mat.booth@redhat.com> - 1:9.0.0-2.7
-- Fix binary stripping
-
-* Tue Aug 02 2016 Mat Booth <mat.booth@redhat.com> - 1:9.0.0-2.6
-- Fix launching stand-alone debugger
-
-* Fri Jul 29 2016 Mat Booth <mat.booth@redhat.com> - 1:9.0.0-2.5
-- Fix tests are uninstallable
-
-* Fri Jul 29 2016 Mat Booth <mat.booth@redhat.com> - 1:9.0.0-2.4
-- Perform full non-bootstrap build
-
-* Fri Jul 29 2016 Mat Booth <mat.booth@redhat.com> - 1:9.0.0-2.3
-- Enable remote bits
-
-* Fri Jul 29 2016 Mat Booth <mat.booth@redhat.com> - 1:9.0.0-2.2
-- Perform a bootstrap build
-- Fix non-bootstrap requires
-
-* Fri Jul 29 2016 Mat Booth <mat.booth@redhat.com> - 1:9.0.0-2.1
+* Sun Apr 02 2017 Mat Booth <mat.booth@redhat.com> - 1:9.2.1-2.1
 - Auto SCL-ise package for rh-eclipse46 collection
 
-* Fri Jul 29 2016 Mat Booth <mat.booth@redhat.com> - 1:9.0.0-2
-- Fix bootstrapping mode
+* Thu Mar 30 2017 Mat Booth <mat.booth@redhat.com> - 1:9.2.1-2
+- Increase memory to fix the build on s390
+
+* Tue Mar 28 2017 Mat Booth <mat.booth@redhat.com> - 1:9.2.1-1
+- Update to latest upstream release
+- Conditionalise building of arduino support
+
+* Fri Feb 10 2017 Fedora Release Engineering <releng@fedoraproject.org> - 1:9.2.0-4
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_26_Mass_Rebuild
+
+* Tue Jan 31 2017 Mikolaj Izdebski <mizdebsk@redhat.com> - 1:9.2.0-3
+- Add missing build-requires on GCC
+
+* Mon Jan 23 2017 Mat Booth <mat.booth@redhat.com> - 1:9.2.0-2
+- Fix standalone debugger
+- Stricter requires on launchbar
+- Add fPIC to serial library build
+
+* Mon Jan 16 2017 Jeff Johnston <jjohnstn@redhat.com> - 1:9.2.0-1
+- Update to Neon.2 release
+- Use org.hamcrest.library instead of org.hamcrest.core
+
+* Tue Nov 08 2016 Mat Booth <mat.booth@redhat.com> - 1:9.1.0-2
+- Full non-bootstrap build
+- Ensure gtk icon cache is updated
+
+* Mon Nov 07 2016 Mat Booth <mat.booth@redhat.com> - 1:9.1.0-1
+- Update to Neon.1 release
+- Fix bootstrapping modes
+- Fix binary stripping and permissions on native libraries
+- Fix build on ppc64le
+
+* Mon Nov 07 2016 Jeff Johnston <jjohnstn@redhat.com> - 1:9.0.0-4
+- Fix versioning typo.
+
+* Mon Nov 07 2016 Jeff Johnston <jjohnstn@redhat.com> - 1:9.0.0-3
+- Bootstrap CDT as powerpc has been added and needs to bootstrap first.
+- This allows us to build eclipse-remote.
+
+* Mon Sep 12 2016 Roland Grunberg <rgrunber@redhat.com> - 1:9.0.0-2
+- Break cycle from main CDT package to the SDK.
 
 * Wed Jun 22 2016 Mat Booth <mat.booth@redhat.com> - 1:9.0.0-1
 - Update to Neon release
